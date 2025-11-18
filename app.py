@@ -4,7 +4,10 @@ from datetime import datetime
 import json
 import os
 
+
 app = Flask(__name__)
+
+# IMPORTANT: Update CORS to allow your Vercel frontend
 CORS(app, resources={
     r"/api/*": {
         "origins": [
@@ -13,6 +16,7 @@ CORS(app, resources={
         ]
     }
 })
+
 # Simple file-based storage (use a real database in production)
 DATA_FILE = 'projects.json'
 
