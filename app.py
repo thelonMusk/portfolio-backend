@@ -5,8 +5,14 @@ import json
 import os
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
-
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:3000",
+            "https://portfolio-frontend-eight-iota.vercel.app"
+        ]
+    }
+})
 # Simple file-based storage (use a real database in production)
 DATA_FILE = 'projects.json'
 
