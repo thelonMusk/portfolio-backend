@@ -1,10 +1,17 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-import json
 import os
+import json
 
 app = Flask(__name__)
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///portfolio.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 # Update CORS to allow your Vercel frontend
 CORS(app, resources={
@@ -16,102 +23,125 @@ CORS(app, resources={
     }
 })
 
-# Data files
-PROJECTS_FILE = 'projects.json'
-CERTIFICATES_FILE = 'certificates.json'
-ACCOMPLISHMENTS_FILE = 'accomplishments.json'
-
-# Helper functions for projects
-def load_projects():
-    if os.path.exists(PROJECTS_FILE):
-        with open(PROJECTS_FILE, 'r') as f:
-            return json.load(f)
-    return []
-
-def save_projects(projects):
-    with open(PROJECTS_FILE, 'w') as f:
-        json.dump(projects, f, indent=2)
-
-# Helper functions for certificates
-def load_certificates():
-    if os.path.exists(CERTIFICATES_FILE):
-        with open(CERTIFICATES_FILE, 'r') as f:
-            return json.load(f)
-    return []
-
-def save_certificates(certificates):
-    with open(CERTIFICATES_FILE, 'w') as f:
-        json.dump(certificates, f, indent=2)
-
-# Helper functions for accomplishments
-def load_accomplishments():
-    if os.path.exists(ACCOMPLISHMENTS_FILE):
-        with open(ACCOMPLISHMENTS_FILE, 'r') as f:
-            return json.load(f)
-    return []
-
-def save_accomplishments(accomplishments):
-    with open(ACCOMPLISHMENTS_FILE, 'w') as f:
-        json.dump(accomplishments, f, indent=2)
-
-# Initialize with sample data
-if not os.path.exists(PROJECTS_FILE):
-    sample_projects = [
-        {
-            'id': 1,
-            'title': 'E-Commerce Platform',
-            'description': 'A full-stack e-commerce solution with payment integration and inventory management.',
-            'category': 'Web Development',
-            'tags': ['React', 'Node.js', 'MongoDB', 'Stripe'],
-            'status': 'completed',
-            'imageUrl': 'https://images.unsplash.com/photo-1661956602116-aa6865609028?w=800&q=80',
-            'demoUrl': 'https://demo.example.com',
-            'githubUrl': 'https://github.com/example',
-            'date': '2024-10'
+# Database Models
+class Project(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(100))
+    tags = db.Column(db.Text)  # Store as JSON string
+    status = db.Column(db.String(50))
+    imageUrl = db.Column(db.String(500))
+    demoUrl = db.Column(db.String(500))
+    githubUrl = db.Column(db.String(500))
+    date = db.Column(db.String(20))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'category': self.category,
+            'tags': json.loads(self.tags) if self.tags else [],
+            'status': self.status,
+            'imageUrl': self.imageUrl,
+            'demoUrl': self.demoUrl,
+            'githubUrl': self.githubUrl,
+            'date': self.date
         }
-    ]
-    save_projects(sample_projects)
 
-if not os.path.exists(CERTIFICATES_FILE):
-    sample_certificates = [
-        {
-            'id': 1,
-            'title': 'AWS Certified Solutions Architect',
-            'issuer': 'Amazon Web Services',
-            'date': '2024-08',
-            'credentialUrl': 'https://aws.amazon.com/verification',
-            'description': 'Professional certification for designing distributed systems on AWS.',
-            'imageUrl': 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&q=80'
+class Certificate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    issuer = db.Column(db.String(200))
+    description = db.Column(db.Text, nullable=False)
+    credentialUrl = db.Column(db.String(500))
+    imageUrl = db.Column(db.String(500))
+    date = db.Column(db.String(20))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'issuer': self.issuer,
+            'description': self.description,
+            'credentialUrl': self.credentialUrl,
+            'imageUrl': self.imageUrl,
+            'date': self.date
         }
-    ]
-    save_certificates(sample_certificates)
 
-if not os.path.exists(ACCOMPLISHMENTS_FILE):
-    sample_accomplishments = [
-        {
-            'id': 1,
-            'title': 'Hackathon Winner - TechCrunch Disrupt',
-            'date': '2024-09',
-            'description': 'First place winner for developing an innovative AI-powered code review tool.',
-            'category': 'Competition',
-            'imageUrl': 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80'
+class Accomplishment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(100))
+    imageUrl = db.Column(db.String(500))
+    date = db.Column(db.String(20))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'category': self.category,
+            'imageUrl': self.imageUrl,
+            'date': self.date
         }
-    ]
-    save_accomplishments(sample_accomplishments)
+
+# Initialize database and add sample data
+with app.app_context():
+    db.create_all()
+    
+    # Add sample data only if tables are empty
+    if Project.query.count() == 0:
+        sample_project = Project(
+            title='E-Commerce Platform',
+            description='A full-stack e-commerce solution with payment integration and inventory management.',
+            category='Web Development',
+            tags=json.dumps(['React', 'Node.js', 'MongoDB', 'Stripe']),
+            status='completed',
+            imageUrl='https://images.unsplash.com/photo-1661956602116-aa6865609028?w=800&q=80',
+            demoUrl='https://demo.example.com',
+            githubUrl='https://github.com/example',
+            date='2024-10'
+        )
+        db.session.add(sample_project)
+    
+    if Certificate.query.count() == 0:
+        sample_cert = Certificate(
+            title='AWS Certified Solutions Architect',
+            issuer='Amazon Web Services',
+            description='Professional certification for designing distributed systems on AWS.',
+            credentialUrl='https://aws.amazon.com/verification',
+            imageUrl='https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&q=80',
+            date='2024-08'
+        )
+        db.session.add(sample_cert)
+    
+    if Accomplishment.query.count() == 0:
+        sample_acc = Accomplishment(
+            title='Hackathon Winner - TechCrunch Disrupt',
+            description='First place winner for developing an innovative AI-powered code review tool.',
+            category='Competition',
+            imageUrl='https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
+            date='2024-09'
+        )
+        db.session.add(sample_acc)
+    
+    db.session.commit()
 
 # ============= PROJECTS ENDPOINTS =============
 
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
-    projects = load_projects()
-    return jsonify(projects)
+    projects = Project.query.all()
+    return jsonify([p.to_dict() for p in projects])
 
 @app.route('/api/projects/<int:project_id>', methods=['GET'])
 def get_project(project_id):
-    projects = load_projects()
-    project = next((p for p in projects if p['id'] == project_id), None)
+    project = Project.query.get(project_id)
     if project:
-        return jsonify(project)
+        return jsonify(project.to_dict())
     return jsonify({'error': 'Project not found'}), 404
 
 @app.route('/api/projects', methods=['POST'])
@@ -121,62 +151,55 @@ def create_project():
     if not data.get('title') or not data.get('description'):
         return jsonify({'error': 'Title and description are required'}), 400
     
-    projects = load_projects()
-    new_id = max([p['id'] for p in projects], default=0) + 1
+    new_project = Project(
+        title=data.get('title'),
+        description=data.get('description'),
+        category=data.get('category', 'Other'),
+        tags=json.dumps(data.get('tags', [])),
+        status=data.get('status', 'in-progress'),
+        imageUrl=data.get('imageUrl', ''),
+        demoUrl=data.get('demoUrl', ''),
+        githubUrl=data.get('githubUrl', ''),
+        date=data.get('date', datetime.now().strftime('%Y-%m'))
+    )
     
-    new_project = {
-        'id': new_id,
-        'title': data.get('title'),
-        'description': data.get('description'),
-        'category': data.get('category', 'Other'),
-        'tags': data.get('tags', []),
-        'status': data.get('status', 'in-progress'),
-        'imageUrl': data.get('imageUrl', ''),
-        'demoUrl': data.get('demoUrl', ''),
-        'githubUrl': data.get('githubUrl', ''),
-        'date': data.get('date', datetime.now().strftime('%Y-%m'))
-    }
+    db.session.add(new_project)
+    db.session.commit()
     
-    projects.append(new_project)
-    save_projects(projects)
-    
-    return jsonify(new_project), 201
+    return jsonify(new_project.to_dict()), 201
 
 @app.route('/api/projects/<int:project_id>', methods=['PUT'])
 def update_project(project_id):
-    data = request.get_json()
-    projects = load_projects()
+    project = Project.query.get(project_id)
     
-    project_index = next((i for i, p in enumerate(projects) if p['id'] == project_id), None)
-    
-    if project_index is None:
+    if not project:
         return jsonify({'error': 'Project not found'}), 404
     
-    projects[project_index].update({
-        'title': data.get('title', projects[project_index]['title']),
-        'description': data.get('description', projects[project_index]['description']),
-        'category': data.get('category', projects[project_index]['category']),
-        'tags': data.get('tags', projects[project_index]['tags']),
-        'status': data.get('status', projects[project_index]['status']),
-        'imageUrl': data.get('imageUrl', projects[project_index]['imageUrl']),
-        'demoUrl': data.get('demoUrl', projects[project_index]['demoUrl']),
-        'githubUrl': data.get('githubUrl', projects[project_index]['githubUrl']),
-        'date': data.get('date', projects[project_index]['date'])
-    })
+    data = request.get_json()
     
-    save_projects(projects)
-    return jsonify(projects[project_index])
+    project.title = data.get('title', project.title)
+    project.description = data.get('description', project.description)
+    project.category = data.get('category', project.category)
+    project.tags = json.dumps(data.get('tags', json.loads(project.tags) if project.tags else []))
+    project.status = data.get('status', project.status)
+    project.imageUrl = data.get('imageUrl', project.imageUrl)
+    project.demoUrl = data.get('demoUrl', project.demoUrl)
+    project.githubUrl = data.get('githubUrl', project.githubUrl)
+    project.date = data.get('date', project.date)
+    
+    db.session.commit()
+    
+    return jsonify(project.to_dict())
 
 @app.route('/api/projects/<int:project_id>', methods=['DELETE'])
 def delete_project(project_id):
-    projects = load_projects()
-    project = next((p for p in projects if p['id'] == project_id), None)
+    project = Project.query.get(project_id)
     
-    if project is None:
+    if not project:
         return jsonify({'error': 'Project not found'}), 404
     
-    projects = [p for p in projects if p['id'] != project_id]
-    save_projects(projects)
+    db.session.delete(project)
+    db.session.commit()
     
     return jsonify({'message': 'Project deleted successfully'})
 
@@ -184,15 +207,14 @@ def delete_project(project_id):
 
 @app.route('/api/certificates', methods=['GET'])
 def get_certificates():
-    certificates = load_certificates()
-    return jsonify(certificates)
+    certificates = Certificate.query.all()
+    return jsonify([c.to_dict() for c in certificates])
 
 @app.route('/api/certificates/<int:cert_id>', methods=['GET'])
 def get_certificate(cert_id):
-    certificates = load_certificates()
-    certificate = next((c for c in certificates if c['id'] == cert_id), None)
+    certificate = Certificate.query.get(cert_id)
     if certificate:
-        return jsonify(certificate)
+        return jsonify(certificate.to_dict())
     return jsonify({'error': 'Certificate not found'}), 404
 
 @app.route('/api/certificates', methods=['POST'])
@@ -202,56 +224,49 @@ def create_certificate():
     if not data.get('title') or not data.get('description'):
         return jsonify({'error': 'Title and description are required'}), 400
     
-    certificates = load_certificates()
-    new_id = max([c['id'] for c in certificates], default=0) + 1
+    new_certificate = Certificate(
+        title=data.get('title'),
+        issuer=data.get('issuer', ''),
+        description=data.get('description'),
+        credentialUrl=data.get('credentialUrl', ''),
+        imageUrl=data.get('imageUrl', ''),
+        date=data.get('date', datetime.now().strftime('%Y-%m'))
+    )
     
-    new_certificate = {
-        'id': new_id,
-        'title': data.get('title'),
-        'issuer': data.get('issuer', ''),
-        'description': data.get('description'),
-        'credentialUrl': data.get('credentialUrl', ''),
-        'imageUrl': data.get('imageUrl', ''),
-        'date': data.get('date', datetime.now().strftime('%Y-%m'))
-    }
+    db.session.add(new_certificate)
+    db.session.commit()
     
-    certificates.append(new_certificate)
-    save_certificates(certificates)
-    
-    return jsonify(new_certificate), 201
+    return jsonify(new_certificate.to_dict()), 201
 
 @app.route('/api/certificates/<int:cert_id>', methods=['PUT'])
 def update_certificate(cert_id):
-    data = request.get_json()
-    certificates = load_certificates()
+    certificate = Certificate.query.get(cert_id)
     
-    cert_index = next((i for i, c in enumerate(certificates) if c['id'] == cert_id), None)
-    
-    if cert_index is None:
+    if not certificate:
         return jsonify({'error': 'Certificate not found'}), 404
     
-    certificates[cert_index].update({
-        'title': data.get('title', certificates[cert_index]['title']),
-        'issuer': data.get('issuer', certificates[cert_index]['issuer']),
-        'description': data.get('description', certificates[cert_index]['description']),
-        'credentialUrl': data.get('credentialUrl', certificates[cert_index]['credentialUrl']),
-        'imageUrl': data.get('imageUrl', certificates[cert_index]['imageUrl']),
-        'date': data.get('date', certificates[cert_index]['date'])
-    })
+    data = request.get_json()
     
-    save_certificates(certificates)
-    return jsonify(certificates[cert_index])
+    certificate.title = data.get('title', certificate.title)
+    certificate.issuer = data.get('issuer', certificate.issuer)
+    certificate.description = data.get('description', certificate.description)
+    certificate.credentialUrl = data.get('credentialUrl', certificate.credentialUrl)
+    certificate.imageUrl = data.get('imageUrl', certificate.imageUrl)
+    certificate.date = data.get('date', certificate.date)
+    
+    db.session.commit()
+    
+    return jsonify(certificate.to_dict())
 
 @app.route('/api/certificates/<int:cert_id>', methods=['DELETE'])
 def delete_certificate(cert_id):
-    certificates = load_certificates()
-    certificate = next((c for c in certificates if c['id'] == cert_id), None)
+    certificate = Certificate.query.get(cert_id)
     
-    if certificate is None:
+    if not certificate:
         return jsonify({'error': 'Certificate not found'}), 404
     
-    certificates = [c for c in certificates if c['id'] != cert_id]
-    save_certificates(certificates)
+    db.session.delete(certificate)
+    db.session.commit()
     
     return jsonify({'message': 'Certificate deleted successfully'})
 
@@ -259,15 +274,14 @@ def delete_certificate(cert_id):
 
 @app.route('/api/accomplishments', methods=['GET'])
 def get_accomplishments():
-    accomplishments = load_accomplishments()
-    return jsonify(accomplishments)
+    accomplishments = Accomplishment.query.all()
+    return jsonify([a.to_dict() for a in accomplishments])
 
 @app.route('/api/accomplishments/<int:acc_id>', methods=['GET'])
 def get_accomplishment(acc_id):
-    accomplishments = load_accomplishments()
-    accomplishment = next((a for a in accomplishments if a['id'] == acc_id), None)
+    accomplishment = Accomplishment.query.get(acc_id)
     if accomplishment:
-        return jsonify(accomplishment)
+        return jsonify(accomplishment.to_dict())
     return jsonify({'error': 'Accomplishment not found'}), 404
 
 @app.route('/api/accomplishments', methods=['POST'])
@@ -277,54 +291,47 @@ def create_accomplishment():
     if not data.get('title') or not data.get('description'):
         return jsonify({'error': 'Title and description are required'}), 400
     
-    accomplishments = load_accomplishments()
-    new_id = max([a['id'] for a in accomplishments], default=0) + 1
+    new_accomplishment = Accomplishment(
+        title=data.get('title'),
+        description=data.get('description'),
+        category=data.get('category', 'Other'),
+        imageUrl=data.get('imageUrl', ''),
+        date=data.get('date', datetime.now().strftime('%Y-%m'))
+    )
     
-    new_accomplishment = {
-        'id': new_id,
-        'title': data.get('title'),
-        'description': data.get('description'),
-        'category': data.get('category', 'Other'),
-        'imageUrl': data.get('imageUrl', ''),
-        'date': data.get('date', datetime.now().strftime('%Y-%m'))
-    }
+    db.session.add(new_accomplishment)
+    db.session.commit()
     
-    accomplishments.append(new_accomplishment)
-    save_accomplishments(accomplishments)
-    
-    return jsonify(new_accomplishment), 201
+    return jsonify(new_accomplishment.to_dict()), 201
 
 @app.route('/api/accomplishments/<int:acc_id>', methods=['PUT'])
 def update_accomplishment(acc_id):
-    data = request.get_json()
-    accomplishments = load_accomplishments()
+    accomplishment = Accomplishment.query.get(acc_id)
     
-    acc_index = next((i for i, a in enumerate(accomplishments) if a['id'] == acc_id), None)
-    
-    if acc_index is None:
+    if not accomplishment:
         return jsonify({'error': 'Accomplishment not found'}), 404
     
-    accomplishments[acc_index].update({
-        'title': data.get('title', accomplishments[acc_index]['title']),
-        'description': data.get('description', accomplishments[acc_index]['description']),
-        'category': data.get('category', accomplishments[acc_index]['category']),
-        'imageUrl': data.get('imageUrl', accomplishments[acc_index]['imageUrl']),
-        'date': data.get('date', accomplishments[acc_index]['date'])
-    })
+    data = request.get_json()
     
-    save_accomplishments(accomplishments)
-    return jsonify(accomplishments[acc_index])
+    accomplishment.title = data.get('title', accomplishment.title)
+    accomplishment.description = data.get('description', accomplishment.description)
+    accomplishment.category = data.get('category', accomplishment.category)
+    accomplishment.imageUrl = data.get('imageUrl', accomplishment.imageUrl)
+    accomplishment.date = data.get('date', accomplishment.date)
+    
+    db.session.commit()
+    
+    return jsonify(accomplishment.to_dict())
 
 @app.route('/api/accomplishments/<int:acc_id>', methods=['DELETE'])
 def delete_accomplishment(acc_id):
-    accomplishments = load_accomplishments()
-    accomplishment = next((a for a in accomplishments if a['id'] == acc_id), None)
+    accomplishment = Accomplishment.query.get(acc_id)
     
-    if accomplishment is None:
+    if not accomplishment:
         return jsonify({'error': 'Accomplishment not found'}), 404
     
-    accomplishments = [a for a in accomplishments if a['id'] != acc_id]
-    save_accomplishments(accomplishments)
+    db.session.delete(accomplishment)
+    db.session.commit()
     
     return jsonify({'message': 'Accomplishment deleted successfully'})
 
