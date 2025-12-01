@@ -11,7 +11,14 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///portfolio.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+from sqlalchemy.pool import NullPool
+
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "poolclass": NullPool
+}
+
 db = SQLAlchemy(app)
+
 
 # Update CORS to allow your Vercel frontend
 CORS(app, resources={
